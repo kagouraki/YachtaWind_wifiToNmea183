@@ -162,6 +162,8 @@ void checkButton() {
 
 			// start portal w delay
 			Serial.println("Starting config portal");
+			client.stop();
+			first_run = true ;
 			//wm.setConfigPortalTimeout(120);
 			digitalWrite(Button_pin, LOW);
 			digitalWrite(Portal_pin, HIGH);
