@@ -139,6 +139,8 @@ void checkButton() {
 			if (digitalRead(TRIGGER_PIN) == LOW) {
 				Serial.println("Button Held");
 				Serial.println("Erasing Config and EEPROM, restarting");
+				client.stop();
+				first_run = true;
 				wm.resetSettings();
 				EEPROM.begin(200);
 				for (int i = 0; i <= 200; i++) {
