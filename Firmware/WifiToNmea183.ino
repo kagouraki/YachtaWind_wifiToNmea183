@@ -5,6 +5,7 @@
 #define Button_pin 13
 #define Portal_pin 12
 #define Connected_pin 14
+//#define Serial_Developing
 
 // wifimanager can run in a blocking mode or a non blocking mode
 // Be sure to know how to process loops with no delay() if using non blocking
@@ -35,7 +36,10 @@ void setup() {
 	EEPROM.begin(200);
 	Serial.setDebugOutput(false);
 	delay(3000);
+
+#ifdef Serial_Developing
 	Serial.println("\n Starting");
+#endif
 
 	pinMode(TRIGGER_PIN, INPUT_PULLUP);
 	pinMode(Button_pin, OUTPUT);
@@ -103,8 +107,11 @@ void setup() {
 	EEPROM.get(0, eeprom_ip);
 	EEPROM.get(100, eeprom_port);
 	EEPROM.end();
-	//Serial.println(eeprom_ip);
-	//Serial.println(eeprom_port);
+
+#ifdef Serial_Developing
+	Serial.println(eeprom_ip);
+	Serial.println(eeprom_port);
+#endif
 
 	bool res;
 	// res = wm.autoConnect(); // auto generated AP name from chipid
@@ -113,12 +120,14 @@ void setup() {
 	//res = wm.autoConnect("Wifi2Nmea183", "12345678"); // password protected ap
 
 	if (!res) {
-		Serial.println("Failed to connect or hit timeout");
+		//Serial.println("Failed to connect or hit timeout");
 		digitalWrite(Portal_pin, LOW);
 		// ESP.restart();
 	} else {
 		//if you get here you have connected to the WiFi
+#ifdef Serial_Developing
 		Serial.println("connected...yeey :)");
+#endif
 		digitalWrite(Portal_pin, LOW);
 	}
 
@@ -130,15 +139,19 @@ void checkButton() {
 		// poor mans debounce/press-hold, code not ideal for production
 		delay(50);
 		if (digitalRead(TRIGGER_PIN) == LOW) {
+#ifdef Serial_Developing
 			Serial.println("Button Pressed");
+#endif
 			digitalWrite(Button_pin, HIGH);
 			digitalWrite(Portal_pin, LOW);
 			digitalWrite(Connected_pin, LOW);
 			// still holding button for 8000 ms, reset settings, code not idea for production
 			delay(8000); // reset delay hold
 			if (digitalRead(TRIGGER_PIN) == LOW) {
+#ifdef Serial_Developing
 				Serial.println("Button Held");
 				Serial.println("Erasing Config and EEPROM, restarting");
+#endif
 				client.stop();
 				first_run = true;
 				wm.resetSettings();
@@ -147,7 +160,9 @@ void checkButton() {
 					EEPROM.write(i, 0);
 				}
 				boolean ok1 = EEPROM.commit();
+#ifdef Serial_Developing
 				Serial.println((ok1) ? "commit OK" : "Commit failed");
+#endif
 				EEPROM.end();
 				digitalWrite(Button_pin, LOW);
 				digitalWrite(Portal_pin, LOW);
@@ -163,20 +178,26 @@ void checkButton() {
 			}
 
 			// start portal w delay
+#ifdef Serial_Developing
 			Serial.println("Starting config portal");
+#endif
 			client.stop();
-			first_run = true ;
+			first_run = true;
 			//wm.setConfigPortalTimeout(120);
 			digitalWrite(Button_pin, LOW);
 			digitalWrite(Portal_pin, HIGH);
 			if (!wm.startConfigPortal("Wifi2Nmea183")) {
+#ifdef Serial_Developing
 				Serial.println("failed to connect or hit timeout");
+#endif
 				digitalWrite(Portal_pin, LOW);
 				delay(3000);
 				ESP.restart();
 			} else {
 				//if you get here you have connected to the WiFi
+#ifdef Serial_Developing
 				Serial.println("connected...yeey :)");
+#endif
 				digitalWrite(Portal_pin, LOW);
 			}
 		}
@@ -200,8 +221,10 @@ void switch_server() {
 	EEPROM.get(0, eeprom_ip);
 	EEPROM.get(100, eeprom_port);
 	EEPROM.end();
+#ifdef Serial_Developing
 	Serial.println(eeprom_ip);
 	Serial.println(eeprom_port);
+#endif
 
 	first_run = true;
 	changes_made = false;
@@ -212,13 +235,17 @@ void saveParamCallback() {
 	String temp_ip = getParam("ip");
 	String temp_port = getParam("port");
 	temp_ip.toCharArray(charBuf, temp_ip.length() + 1);
+#ifdef Serial_Developing
 	Serial.println(charBuf);
 	Serial.println(temp_port);
+#endif
 	EEPROM.begin(200);
 	EEPROM.put(0, charBuf);
 	EEPROM.put(100, temp_port);
 	boolean ok1 = EEPROM.commit();
+#ifdef Serial_Developing
 	Serial.println((ok1) ? "commit OK" : "Commit failed");
+#endif
 	EEPROM.end();
 	changes_made = true;
 
@@ -234,44 +261,68 @@ void loop() {
 	if (WiFi.status() == WL_CONNECTED) {
 		if (first_run) {
 			digitalWrite(Portal_pin, LOW);
+#ifdef Serial_Developing
 			Serial.println("Initial Delay");
+#endif
 			delay(5000);
+#ifdef Serial_Developing
 			Serial.print("Connecting to:");
+#endif
 
 			if (server.fromString(eeprom_ip) && eeprom_port.toInt() > 0
 					&& eeprom_port.toInt() <= 65536) {
+#ifdef Serial_Developing
 				Serial.print(server);
 				Serial.print(" : ");
 				Serial.print(eeprom_port.toInt());
+#endif
 				client.setTimeout(500);
 				while (!client.connect(server, eeprom_port.toInt())) {
-
+#ifdef Serial_Developing
 					Serial.print(".");
+#endif
 					digitalWrite(Connected_pin, !digitalRead(Connected_pin));
 					checkButton();
 
 				}
+#ifdef Serial_Developing
 				Serial.println(".");
 				Serial.println("CONNECTED");
+#endif
 				digitalWrite(Connected_pin, HIGH);
 				first_run = false;
 
 			} else {
 				digitalWrite(Connected_pin, LOW);
+#ifdef Serial_Developing
 				Serial.println("Not valid IP or port");
 				Serial.println("Starting config portal");
-				digitalWrite(Portal_pin, HIGH);
-				if (!wm.startConfigPortal("Wifi2Nmea183")) {
-					digitalWrite(Portal_pin, LOW);
-					Serial.println("failed to connect or hit timeout");
-					delay(3000);
-					ESP.restart();
-				} else {
-					//if you get here you have connected to the WiFi
-					Serial.println("connected...yeey :)");
-					digitalWrite(Portal_pin, LOW);
+#endif
+
+				while (true) {
+					digitalWrite(Connected_pin, HIGH);
+					delay(200);
+					checkButton();
+					digitalWrite(Connected_pin, LOW);
+					delay(200);
+					checkButton();
+					digitalWrite(Connected_pin, HIGH);
+					delay(200);
+					checkButton();
+					digitalWrite(Connected_pin, LOW);
+					delay(200);
+					checkButton();
+					digitalWrite(Connected_pin, HIGH);
+					delay(200);
+					checkButton();
+					digitalWrite(Connected_pin, LOW);
+					delay(200);
+					checkButton();
+					delay(1000);
+					checkButton();
 
 				}
+
 			}
 		}
 
